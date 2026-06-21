@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Splatoon 2D Network Tester</title>
+    <style>
+        body { font-family: sans-serif; background: #222; color: #fff; text-align: center; }
+        #gameCanvas { background: #111; border: 2px solid #fff; display: block; margin: 20px auto; }
+    </style>
+</head>
+<body>
+    <h1>Splatoon 2D Live Server Test</h1>
+    <p>Use your <b>Arrow Keys</b> to move. Open this file in another tab to see Player 2!</p>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+    <script>
+        // Replace this with your actual live Render link!
+        const SERVER_URL = "wss://://onrender.com"; 
+        
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        
+        let ws = new WebSocket(SERVER_URL);
+        let myId = null;
+        let myX = Math.floor(Math.random() * 300) + 50;
+        let myY = Math.floor(Math.random() * 300) + 50;
+        let remotePlayers = {};
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'INIT') {
+                myId = data.id;
+                console.log("Connected to server! My ID:", myId);
+                sendPosition();
+            }
+            if (data.type === 'UPDATE') {
+                remotePlayers = data.players;
+                drawGame();
+            }
+            if (data.type === 'REMOVE') {
+                delete remotePlayers[data.id];
+                drawGame();
+            }
+        };
+
+        function sendPosition() {
+            if (ws.readyState === WebSocket.OPEN && myId) {
+                ws.send(JSON.stringify({ type: 'MOVE', x: myX, y: myY, team: 'inkling' }));
+            }
+        }
+
+        function drawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw all other players on the server
+            for (let id in remotePlayers) {
+                if (id === myId) {
+                    ctx.fillStyle = "#A334FA"; // Your Character (Splatoon Purple)
+                } else {
+                    ctx.fillStyle = "#FA7A34"; // Enemy Characters (Splatoon Orange)
+                }
+                ctx.beginPath();
+                ctx.arc(remotePlayers[id].x, remotePlayers[id].y, 12, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Listen for Arrow Keys to move the test character
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowUp") myY -= 8;
+            if (e.key === "ArrowDown") myY += 8;
+            if (e.key === "ArrowLeft") myX -= 8;
+            if (e.key === "ArrowRight") myX += 8;
+            
+            sendPosition();
+        });
+    </script>
+</body>
+</html>
